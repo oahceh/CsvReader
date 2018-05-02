@@ -1,79 +1,66 @@
+-- CsvReader.lua
+-- Created by hechao 2018-05-02
+-- Last modified by hechao 2018-05-02
+-- Csv reader.
+-- Parse csv char by char.
 
+-- Get a specified character by index.
 function string.get(s, index)
     return string.sub(s, index, index)
 end
 
-local ParserContext = {
-    -- Current start index.
-    startIndex = 1,
-    -- Current end index.
-    endIndex = 1,
-    -- Current continuous quotes token.
-    curQuotesToken = nil,
-    -- Current token.
-    curToken = nil,
-    -- Is quoted
-    isQuoted = false,
-    -- Current count of quotes.
-    curQuotesCount = 0
-}
-
-local function ParseLine(str)
+-- Split a line in csv string.
+local function SplitLine(str)
     local s = str
 
-    local ret = {}
-    local ctx = ParserContext
-
-    local i = 1
+    local ret, i = {}, 1
+    local quotesToken, quotesCount, token = nil, 0, nil
     while i <= #s do
         -- Current character.
         local c = string.get(s, i)
 
+        -- End of line.
         if i == #s then
-            ret[#ret + 1] = ctx.curToken .. c
+            ret[#ret + 1] = token .. c
             break
         end
 
+        -- Case comma
         if c == ',' then
             -- Current token is not quoted, this token is a 
             -- complete field's value.
-            if not ctx.isQuoted then
-                ret[#ret + 1] = ctx.curToken
-                ctx.startIndex = i + 1
-                ctx.curToken = nil
-                ctx.curQuotesToken = nil
-                ctx.curQuotesCount = 0
+            if quotesCount == 0 then
+                ret[#ret + 1] = token
+                token = nil
             -- Current token is quoted.
             else
-                if not ctx.curQuotesToken then
-                    ctx.curToken = ctx.curToken .. c
+                if not quotesToken then
+                    token = token .. c
                 else
-                    if #ctx.curQuotesToken % 2 == 0 then
-                        ctx.curToken = ctx.curToken .. c
+                    if #quotesToken % 2 == 0 and #token > 2 then
+                        token = token .. c
                     else
-                        if ctx.curQuotesCount % 2 == 0 then
-                            ret[#ret + 1] = ctx.curToken
-                            ctx.startIndex = i + 1
-                            ctx.curToken = nil
-                            ctx.curQuotesCount = 0
+                        if quotesCount % 2 == 0 then
+                            ret[#ret + 1] = token
+                            token = nil
+                            quotesCount = 0
                         else
-                            ctx.curToken = ctx.curToken .. c
+                            token = token .. c
                         end
                     end
-                    ctx.curQuotesToken = nil
+                    quotesToken = nil
                 end
             end
-            ctx.curQuotesToken = nil
+            quotesToken = nil
+        -- Case quote
         elseif c == '"' then
-            if ctx.startIndex == i then
-                ctx.isQuoted = true
-            end
-            ctx.curQuotesToken = (ctx.curQuotesToken or '') .. c
-            ctx.curToken = (ctx.curToken or '') .. c
-            ctx.curQuotesCount = ctx.curQuotesCount + 1
+            quotesToken = (quotesToken or '') .. c
+            quotesCount = quotesCount + 1
+            token = (token or '') .. c
+        -- Case else
         else
-            ctx.curToken = (ctx.curToken or '') .. c
-            ctx.curQuotesToken = nil
+            token = (token or '') .. c
+            quotesToken = nil
         end
         i = i + 1
     end
@@ -83,10 +70,12 @@ end
 
 local str = '1999,Chevy,"Venture ""Extended Edition""","",4900.00'
 
+print(str)
+
 local function PrintList(t)
     for i, v in ipairs(t) do
         print(i, v)
     end
 end
 
-PrintList(ParseLine(str))
+PrintList(SplitLine(str))
